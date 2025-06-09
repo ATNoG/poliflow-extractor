@@ -1,0 +1,160 @@
+# Real estate listing website example from Valve: Securing Function Workflows on Serverless Computing Platforms
+
+id: workflow-bank
+name: workflow-bank
+version: '0.1.0'
+specVersion: '0.8'
+description: Real estate listing website
+start: entry-event
+
+events:
+  - name: triggerEvent
+    type: http.request.received
+    source: http-event-sources
+    kind: consumed
+  - name: uploadPhoto
+    type: photo.database.upload
+    kind: produced
+  - name: newPhoto
+    type: photo.database.new
+    source: photo-db-source
+    kind: consumed
+  - name: uploadInfo
+    type: info.database.upload
+    kind: produced
+  - name: newInfo
+    type: info.database.new
+    source: info-db-source
+    kind: consumed
+
+functions:
+  - name: f1-upload-listing
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/f1-upload-listing?method=POST #&returnStatusCode=true
+  - name: verify-transaction
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/verify-transaction?method=POST&failOnStatusError=false #&returnStatusCode=true
+  - name: transaction
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/transaction?method=POST&failOnStatusError=false
+  - name: result
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/result?method=POST
+  - name: process-event
+    type: expression
+    operation: |
+      {
+        transformed: (
+          (
+            .headers
+            | to_entries
+            | map(select(.key | ascii_downcase != "host"))
+            | map({("HEADER_" + .key): .value})
+            | add
+          ) + .data
+        )
+      }
+
+states:
+  - name: entry-event
+    type: event
+    onEvents:
+      - eventRefs:
+          - triggerEvent
+        actions:
+        - functionRef:
+            refName: process-event
+    stateDataFilter:
+      output: "${ .transformed }"
+    transition: entry-decision
+
+  - name: entry-decision
+    type: switch
+    dataConditions:
+      - condition: ${ ."postListing" == true }
+        transition: f1
+      - condition: ${ ."submitDoc" == true }
+        transition: f2
+      - condition: ${ ."submitClientInfo" == true }
+        transition: f3
+    defaultCondition:
+      end: true
+  
+  - name: f1
+    type: operation
+    actions: 
+      - functionRef:
+          refName: f1-upload-listing
+    transition: d1
+  
+  - name: d1
+    type: operation
+    actions:
+      - eventRef:
+          triggerEventRef: uploadPhoto
+          resultEventRef: newPhoto
+    transition: f4
+  
+  - name: f4
+    type: operation
+    actions: 
+      - functionRef:
+          refName: f4-photo-verification
+    transition: f5
+  
+  - name: f5
+    type: operation
+    actions: 
+      - functionRef:
+          refName: f5-image-correction
+    transition: f6
+  
+  - name: f6
+    type: operation
+    actions: 
+      - functionRef:
+          refName: f6-post-website
+    transition: advertise-listing
+  
+  - name: advertise-listing
+    type: operation
+    actions:
+      - subFlowRef: advertise-listing
+    end: true
+
+  - name: f2
+    type: operation
+    actions:
+      - functionRef:
+          refName: f2-upload-verification
+    transition: d2
+
+  - name: f3
+    type: operation
+    actions:
+      - functionRef:
+          refName: f3-upload-client
+      - functionRef:
+          refName: f3-upload-client3
+    transition: d2
+
+  - name: d2
+    type: operation
+    actions:
+      - eventRef:
+          triggerEventRef: uploadInfo
+          resultEventRef: newInfo
+    transition: new-info
+  
+  - name: new-info
+    type: parallel
+    branches:
+      - name: post-website
+        actions:
+          - subFlowRef: website-post-listing
+      - name: advertise
+        actions:
+          - subFlowRef: advertise-listing
+    end: true
+          
+            
