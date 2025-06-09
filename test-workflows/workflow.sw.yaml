@@ -1,0 +1,103 @@
+id: workflow-bank
+name: workflow-bank
+version: '0.1.0'
+specVersion: '0.8'
+description: Banking App
+start: entry-event
+
+events:
+  - name: triggerEvent
+    type: http.request.received
+    source: http-event-sources
+    kind: consumed
+
+functions:
+  - name: authorization
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/authorization?method=POST&failOnStatusError=false #&returnStatusCode=true
+  - name: verify-transaction
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/verify-transaction?method=POST&failOnStatusError=false #&returnStatusCode=true
+  - name: transaction
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/transaction?method=POST&failOnStatusError=false
+  - name: result
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/result?method=POST
+  - name: process-event
+    type: expression
+    operation: |
+      {
+        transformed: (
+          (
+            .headers
+            | to_entries
+            | map(select(.key | ascii_downcase != "host"))
+            | map({("HEADER_" + .key): .value})
+            | add
+          ) + .data
+        )
+      }
+
+states:
+  - name: entry-event
+    type: event
+    onEvents:
+      - eventRefs:
+          - triggerEvent
+        actions:
+        - functionRef:
+            refName: process-event
+    stateDataFilter:
+      output: "${ .transformed }"
+    transition: authorization
+
+  - name: authorization
+    type: operation
+    actions:
+      - functionRef:
+          refName: authorization
+    transition: authorization-decide
+
+  - name: authorization-decide
+    type: switch
+    dataConditions:
+      - condition: ${ ."do-verification" == true }
+        transition: verify-transaction
+      # - condition: "${ .do-verification == false or .STATUS_CODE != null and (.STATUS_CODE < 200 or .STATUS_CODE >= 300) }"
+      #   transition: result
+    defaultCondition:
+      # end: true
+      transition: result
+
+  - name: verify-transaction
+    type: operation
+    actions:
+      - functionRef:
+          refName: verify-transaction
+    transition: verify-transaction-decide
+  
+  - name: verify-transaction-decide
+    type: switch
+    dataConditions:
+      - condition: ${ ."do-transaction" == true }
+        transition: transaction
+      # - condition: "${ .do-transaction == false or .STATUS_CODE != null and (.STATUS_CODE < 200 or .STATUS_CODE >= 300) }"
+      #   transition: result
+    defaultCondition:
+      # end: true
+      transition: result
+
+  - name: transaction
+    type: operation
+    actions:
+      - functionRef:
+          refName: transaction
+    transition: result
+  
+  - name: result
+    type: operation
+    actions:
+      - functionRef:
+          refName: result
+    end: true
