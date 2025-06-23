@@ -1,0 +1,14 @@
+attrs==25.3.0
+certifi==2025.6.15
+charset-normalizer==3.4.2
+idna==3.10
+jsonschema==4.4.0
+pygraphviz==1.11
+pyrsistent==0.20.0
+PyYAML==6.0
+requests==2.32.4
+serverlessworkflow.sdk==1.0.0
+setuptools==75.0.0
+six==1.17.0
+transitions==0.9.2
+urllib3==2.5.0

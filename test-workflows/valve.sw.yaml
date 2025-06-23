@@ -1,7 +1,7 @@
 # Real estate listing website example from Valve: Securing Function Workflows on Serverless Computing Platforms
 
-id: workflow-bank
-name: workflow-bank
+id: valve
+name: Valve real estate listing website example
 version: '0.1.0'
 specVersion: '0.8'
 description: Real estate listing website
@@ -28,18 +28,9 @@ events:
     kind: consumed
 
 functions:
-  - name: f1-upload-listing
+  - name: f1
     type: custom
     operation: knative:services.v1.serving.knative.dev/f1-upload-listing?method=POST #&returnStatusCode=true
-  - name: verify-transaction
-    type: custom
-    operation: knative:services.v1.serving.knative.dev/verify-transaction?method=POST&failOnStatusError=false #&returnStatusCode=true
-  - name: transaction
-    type: custom
-    operation: knative:services.v1.serving.knative.dev/transaction?method=POST&failOnStatusError=false
-  - name: result
-    type: custom
-    operation: knative:services.v1.serving.knative.dev/result?method=POST
   - name: process-event
     type: expression
     operation: |
@@ -62,8 +53,7 @@ states:
       - eventRefs:
           - triggerEvent
         actions:
-        - functionRef:
-            refName: process-event
+        - functionRef: process-event
     stateDataFilter:
       output: "${ .transformed }"
     transition: entry-decision
@@ -72,19 +62,22 @@ states:
     type: switch
     dataConditions:
       - condition: ${ ."postListing" == true }
-        transition: f1
+        transition: f1-upload-listing
       - condition: ${ ."submitDoc" == true }
-        transition: f2
+        transition: f2-upload-verification
       - condition: ${ ."submitClientInfo" == true }
-        transition: f3
+        transition: f3-upload-client
     defaultCondition:
       end: true
   
-  - name: f1
+  - name: f1-upload-listing
     type: operation
+    actionMode: parallel
     actions: 
+      - functionRef: f1
+      - functionRef: f2
       - functionRef:
-          refName: f1-upload-listing
+          refName: f5
     transition: d1
   
   - name: d1
@@ -93,27 +86,25 @@ states:
       - eventRef:
           triggerEventRef: uploadPhoto
           resultEventRef: newPhoto
-    transition: f4
+    transition: f4-photo-verification
+
   
-  - name: f4
+  - name: f4-photo-verification
     type: operation
     actions: 
-      - functionRef:
-          refName: f4-photo-verification
-    transition: f5
+      - functionRef: f4
+    transition: f5-image-correction
   
-  - name: f5
+  - name: f5-image-correction
     type: operation
     actions: 
-      - functionRef:
-          refName: f5-image-correction
-    transition: f6
+      - functionRef: f5
+    transition: f6-post-website
   
-  - name: f6
+  - name: f6-post-website
     type: operation
     actions: 
-      - functionRef:
-          refName: f6-post-website
+      - functionRef: f6
     transition: advertise-listing
   
   - name: advertise-listing
@@ -122,20 +113,16 @@ states:
       - subFlowRef: advertise-listing
     end: true
 
-  - name: f2
+  - name: f2-upload-verification
     type: operation
     actions:
-      - functionRef:
-          refName: f2-upload-verification
+      - functionRef: f2
     transition: d2
 
-  - name: f3
+  - name: f3-upload-client
     type: operation
     actions:
-      - functionRef:
-          refName: f3-upload-client
-      - functionRef:
-          refName: f3-upload-client3
+      - functionRef: f3
     transition: d2
 
   - name: d2
@@ -151,10 +138,9 @@ states:
     branches:
       - name: post-website
         actions:
-          - subFlowRef: website-post-listing
+          - functionRef: f7 a
+          - functionRef: f6
       - name: advertise
         actions:
           - subFlowRef: advertise-listing
     end: true
-          
-            
