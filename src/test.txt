@@ -1,0 +1,5 @@
+[
+    [<NestedState('entry-event')@135138782089568>, <NestedState('entry-decision')@135138781991696>, <NestedState('f1')@135138781507472>, <NestedState('f2')@135138781715984>, <NestedState('f5')@135138781715712>, <NestedState('d1')@135138792234576>, <NestedState('f4')@135138792058912>, <NestedState('f5')@135138792319568>, <NestedState('f6')@135138781862896>], 
+    [<NestedState('entry-event')@135138782089568>, <NestedState('entry-decision')@135138781991696>, <NestedState('f2')@135138782076016>, <NestedState('d2')@135138782076176>, <NestedState('post-website')@135138782076656>, <NestedState('advertise')@135138782077136>], 
+    [<NestedState('entry-event')@135138782089568>, <NestedState('entry-decision')@135138781991696>, <NestedState('f3')@135138782076336>, <NestedState('d2')@135138782076176>, <NestedState('post-website')@135138782076656>, <NestedState('advertise')@135138782077136>]
+]

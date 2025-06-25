@@ -60,8 +60,10 @@ def get_nested_path(machine: HierarchicalMachine, state: NestedState, path: str)
         
     
     paths = []
-    print(state, state.initial)
-    initials = [state.states[state.initial] if type(state.initial) == str else (state.states[s] for s in state.initial)]
+    if type(state.initial) == str:
+        initials = [state.states[state.initial]]
+    else:
+        initials = [state.states[s] for s in state.initial]
     # paths = 
     for init in initials:
         paths.extend(get_nested_transition_path(init, path))
@@ -71,25 +73,36 @@ def get_nested_path(machine: HierarchicalMachine, state: NestedState, path: str)
         #     get_nested_path(machine, nested := state.states[t.dest], path=f"{path}.{nested.name}")
     
 
-def get_paths_to_substate(machine: HierarchicalMachine, target_substate):
-    
-    # First, let's find the machine state where the target substate is
-    outer_path = [[]]
-    for state in machine.states.values():
-        # print(state, machine.get_transitions())
+def get_paths_to_substate(machine: HierarchicalMachine, target_substate: str):
+
+    def find_outer_path_to_substate(machine: HierarchicalMachine, outer_state: NestedState, state: NestedState, target_substate: str):
+        outer_paths = []
         if substates := state.states:
             for name, substate in substates.items():
+                outer_paths.extend(find_outer_path_to_substate(machine, outer_state, substate, target_substate))
                 if name == target_substate:
-                    outer_path = get_paths_to_node(machine, state)
-                    break
-                
+                    outer_paths.extend(get_paths_to_node(machine, outer_state))
+        return outer_paths
+
+    # First, let's find the machine state where the target substate is
+    outer_paths = []
+    for state in machine.states.values():
+        outer_paths.extend(find_outer_path_to_substate(machine, state, state, target_substate))
+        # print(state, machine.get_transitions())
+        # if substates := state.states:
+        #     for name, substate in substates.items():
+        #         if name == target_substate:
+        #             outer_path = get_paths_to_node(machine, state)
+
+    print(outer_paths)
+
     # paths = []
     # print(get_nested_path(machine, machine.get_state("f1-upload-listing"), "f1-upload-listing"))
-    
+
     # print(machine.get_state("f1-upload-listing").initial)
-    
+
     paths = []
-    for path in outer_path:
+    for path in outer_paths:
         new_path = []
         for node in path:
             # if initial := node.initial:
@@ -119,23 +132,23 @@ def get_paths_to_substate(machine: HierarchicalMachine, target_substate):
     # dfs(target_substate, [])
     return paths
 
-def get_all_substate_paths(machine: HierarchicalMachine):
-    all_paths = {}
+# def get_all_substate_paths(machine: HierarchicalMachine):
+#     all_paths = {}
 
-    def explore_state(state):
-        # Check if the state has nested states
-        if hasattr(state, "states") and state.states:
-            for substate in state.states:
-                explore_state(substate)
-        else:
-            # Compute paths for the current state
-            all_paths[state] = get_paths_to_substates(machine, state)
+#     def explore_state(state):
+#         # Check if the state has nested states
+#         if hasattr(state, "states") and state.states:
+#             for substate in state.states:
+#                 explore_state(substate)
+#         else:
+#             # Compute paths for the current state
+#             all_paths[state] = get_paths_to_substates(machine, state)
 
-    # Start exploring from the top-level states
-    for state in machine.states.keys():
-        explore_state(state)
+#     # Start exploring from the top-level states
+#     for state in machine.states.keys():
+#         explore_state(state)
 
-    return all_paths
+#     return all_paths
 
 def main():
     subflows = []
@@ -162,7 +175,7 @@ def main():
     #     print(" -> ".join([s.name for s in path]))
     
     
-    target_substate = "advertise"  # Replace with the actual substate name
+    target_substate = "f6"  # Replace with the actual substate name
     paths_to_substate = get_paths_to_substate(machine, target_substate)
     print(paths_to_substate)
     # for path in paths_to_substate:
