@@ -72,7 +72,7 @@ states:
   
   - name: f1-upload-listing
     type: operation
-    actionMode: sequential # parallel
+    actionMode: parallel # parallel
     actions: 
       - functionRef: f1
       - functionRef: f2
@@ -143,4 +143,9 @@ states:
       - name: advertise
         actions:
           - subFlowRef: advertise-listing
-    end: true
+    transition: test
+  
+  - name: test
+    type: operation
+    actions:
+      - functionRef: test

@@ -57,27 +57,38 @@ def get_nested_transition_path(
     src_state: NestedState,
     machine_path,
 ):
-    if not machine.get_nested_transitions(
-        src_path=[f"{machine_path}.{src_state.name}"]
-    ):
-        return [[src_state]]
+    # if not machine.get_nested_transitions(
+    #     src_path=[f"{machine_path}.{src_state.name}"]
+    # ):
+    #     return [[src_state]]
     final_path = []
-    path = get_nested_path(machine, src_state, path=f"{machine_path}.{src_state.name}")
-    for t in machine.get_nested_transitions(
+    if machine.get_nested_transitions(
         src_path=[f"{machine_path}.{src_state.name}"]
     ):
-        next_state_path = get_nested_transition_path(
-            machine,
-            outer_state,
-            outer_state.states[t.dest.split(machine.state_cls.separator)[-1]],
-            machine_path,
-        )
-        transition_path = []
-        for p in path:
-            for nsp in next_state_path:
-                transition_path.append(p.copy())
-                transition_path[-1].extend(nsp)
-        final_path.extend(transition_path)
+        path = get_nested_path(machine, src_state, path=f"{machine_path}.{src_state.name}")
+        for t in machine.get_nested_transitions(
+            src_path=[f"{machine_path}.{src_state.name}"]
+        ):
+            next_state_path = get_nested_transition_path(
+                machine,
+                outer_state,
+                outer_state.states[t.dest.split(machine.state_cls.separator)[-1]],
+                machine_path,
+            )
+            transition_path = []
+            for p in path:
+                for nsp in next_state_path:
+                    transition_path.append(p.copy())
+                    transition_path[-1].append(nsp)
+            final_path.extend(transition_path)
+    elif src_state.states:
+        path = get_nested_path(machine, src_state, path=f"{machine_path}.{src_state.name}")
+        if type(path) == tuple:
+            final_path.append(path)
+        else:
+            final_path.extend(path)
+    else:
+        final_path = [[src_state]]
     return final_path
 
 
@@ -89,16 +100,15 @@ def get_nested_path(
 
     paths = []
     if type(state.initial) == str:
-        initials = [state.states[state.initial]]
+        paths.extend(get_nested_transition_path(machine, state, state.states[state.initial], path))
     else:
-        initials = [state.states[s] for s in state.initial]
-    # paths =
-    for init in initials:
-        paths.extend(get_nested_transition_path(machine, state, init, path))
+        parallel = []
+        for s in state.initial:
+            init = state.states[s]
+            parallel.extend(get_nested_transition_path(machine, state, init, path))
+        paths.append(tuple(parallel))
 
     return paths
-    # for t in machine.get_nested_transitions(src_path=[f"{path}.{init.name}"]):
-    #     get_nested_path(machine, nested := state.states[t.dest], path=f"{path}.{nested.name}")
 
 
 def get_paths_to_substate(machine: HierarchicalMachine, target_substate: str):
@@ -136,7 +146,7 @@ def get_paths_to_substate(machine: HierarchicalMachine, target_substate: str):
         for node in path[:-1]:
             # if initial := node.initial:
             for np in get_nested_path(machine, node, node.name):
-                new_path.extend(np)
+                new_path.append(np)
             # new_path.extend(get_nested_path(machine, node, node.name))
 
         # For the last node in the path
@@ -174,8 +184,7 @@ def get_paths_to_substate(machine: HierarchicalMachine, target_substate: str):
                                 source=".".join(src[1:]),
                                 dest=".".join(dest[1:]),
                             )
-            # if new_machine.get_nested_transitions(src_path=["advertise-listing/0-1-0.f8-advertise-listing"]):
-            #     print(new_machine.get_state("advertise-listing/0-1-0").states)
+
             for np in get_paths_to_substate(new_machine, target_substate):
                 newer_path = new_path.copy()
                 newer_path.extend(np)
@@ -214,7 +223,7 @@ def main():
     # # for path in paths:
     # #     print(" -> ".join([s.name for s in path]))
 
-    target_substate = "f9"  # Replace with the actual substate name
+    target_substate = "test"  # Replace with the actual substate name
     paths_to_substate = get_paths_to_substate(machine, target_substate)
     print(paths_to_substate)
 
