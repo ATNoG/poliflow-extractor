@@ -76,19 +76,29 @@ def get_nested_transition_path(
                 machine_path,
             )
             transition_path = []
-            for p in path:
-                for nsp in next_state_path:
+
+            # TODO -> THIS PIECE OF CODE CAN BE IMPROVED, IT REPEATS TWO TIMES
+            if path["type"] == "sequence":
+                for p in path["value"]:
                     transition_path.append(p.copy())
-                    transition_path[-1].append(nsp)
-            final_path.extend(transition_path)
+                    if next_state_path["type"] == "sequence":
+                        for nsp in next_state_path["value"]:
+                            transition_path.append(nsp)
+                    else:
+                        transition_path.append(next_state_path)
+            else:
+                transition_path.append(path.copy())
+                if next_state_path["type"] == "sequence":
+                    for nsp in next_state_path["value"]:
+                        transition_path.append(nsp)
+                else:
+                    transition_path.append(next_state_path)
+            final_path = {"type": "sequence", "value": transition_path}
     elif src_state.states:
         path = get_nested_path(machine, src_state, path=f"{machine_path}.{src_state.name}")
-        if type(path) == tuple:
-            final_path.append(path)
-        else:
-            final_path.extend(path)
+        final_path = path
     else:
-        final_path = [[src_state]]
+        final_path = {"type": "sequence", "value": [{"type": "function", "value": src_state}]}
     return final_path
 
 
@@ -96,19 +106,18 @@ def get_nested_path(
     machine: HierarchicalMachine, state: NestedState, path: str
 ) -> List[List[Tuple[NestedState]]]:
     if not state.states:
-        return [[state]]
+        return {"type": "sequence", "value": [{"type": "function", "value": state}]}
 
-    paths = []
     if type(state.initial) == str:
-        paths.extend(get_nested_transition_path(machine, state, state.states[state.initial], path))
+        path = get_nested_transition_path(machine, state, state.states[state.initial], path)
     else:
         parallel = []
         for s in state.initial:
             init = state.states[s]
-            parallel.extend(get_nested_transition_path(machine, state, init, path))
-        paths.append(tuple(parallel))
+            parallel.append(get_nested_transition_path(machine, state, init, path))
+        path = {"type": "parallel", "value": parallel}
 
-    return paths
+    return path
 
 
 def get_paths_to_substate(machine: HierarchicalMachine, target_substate: str):
@@ -142,13 +151,13 @@ def get_paths_to_substate(machine: HierarchicalMachine, target_substate: str):
 
     paths = []
     for path in outer_paths:
-        new_path = []
+        new_path = {"type": "sequence", "value": []}
         for node in path[:-1]:
-            # if initial := node.initial:
-            for np in get_nested_path(machine, node, node.name):
-                new_path.append(np)
-            # new_path.extend(get_nested_path(machine, node, node.name))
-
+            np = get_nested_path(machine, node, node.name)
+            if np["type"] == "sequence":
+                new_path["value"].append(np["value"] if len(np["value"]) > 1 else np["value"][0])
+            else:       # TODO should verify if it is of type parallel
+                new_path["value"].append(np)
         # For the last node in the path
         last_node_name = path[-1].name
         if machine.get_state(last_node_name).states:
@@ -187,7 +196,7 @@ def get_paths_to_substate(machine: HierarchicalMachine, target_substate: str):
 
             for np in get_paths_to_substate(new_machine, target_substate):
                 newer_path = new_path.copy()
-                newer_path.extend(np)
+                newer_path["value"].extend(np)
                 paths.append(newer_path)
         else:
             paths.append(new_path)
