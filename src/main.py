@@ -2,6 +2,7 @@ from enum import Enum
 from typing import List, Tuple
 from serverlessworkflow.sdk.workflow import Workflow
 from serverlessworkflow.sdk.state_machine_generator import StateMachineGenerator
+from serverlessworkflow.sdk.state_machine_extensions import CustomHierarchicalMachine
 from transitions.extensions.nesting import HierarchicalMachine, NestedState
 
 NestedState.separator = "."
@@ -43,7 +44,8 @@ def get_paths_to_node(
                 )  # Reverse the path to make it start from the initial state
         else:
             for transition in transitions:
-                dfs(machine.get_state(transition.source), path)
+                if transition.source != transition.dest:        # otherwise, it is a foreach state transition
+                    dfs(machine.get_state(transition.source), path)
         path.pop()
 
     # Start DFS from the target node
@@ -98,7 +100,7 @@ def get_nested_transition_path(
         path = get_nested_path(machine, src_state, path=f"{machine_path}.{src_state.name}")
         final_path = path
     else:
-        final_path = {"type": "sequence", "value": [{"type": "function", "value": src_state}]}
+        final_path = {"type": "sequence", "value": [{"type": src_state.tags[0], "value": src_state}]}
     return final_path
 
 
@@ -106,7 +108,7 @@ def get_nested_path(
     machine: HierarchicalMachine, state: NestedState, path: str
 ) -> List[List[Tuple[NestedState]]]:
     if not state.states:
-        return {"type": "sequence", "value": [{"type": "function", "value": state}]}
+        return {"type": "sequence", "value": [{"type": state.tags[0], "value": state}]}
 
     if type(state.initial) == str:
         path = get_nested_transition_path(machine, state, state.states[state.initial], path)
@@ -196,7 +198,7 @@ def get_paths_to_substate(machine: HierarchicalMachine, target_substate: str):
 
             for np in get_paths_to_substate(new_machine, target_substate):
                 newer_path = new_path.copy()
-                newer_path["value"].extend(np)
+                newer_path["value"].extend(np["value"])
                 paths.append(newer_path)
         else:
             paths.append(new_path)
@@ -213,16 +215,14 @@ def main():
     with open("../test-workflows/test.sw.yaml") as f:
         subflows.append(Workflow.from_source(f.read()))
 
-    machine = HierarchicalMachine(
+    machine = CustomHierarchicalMachine(
         model=None,
         initial=None,
         auto_transitions=False,
-    )
-    for index, state in enumerate(workflow.states):
-        StateMachineGenerator(
-            state=state,
+    )    
+    StateMachineGenerator(
+            workflow=workflow,
             state_machine=machine,
-            is_first_state=index == 0,
             get_actions=True,
             subflows=subflows,
         ).generate()
@@ -234,7 +234,20 @@ def main():
 
     target_substate = "test"  # Replace with the actual substate name
     paths_to_substate = get_paths_to_substate(machine, target_substate)
-    print(paths_to_substate)
+    def print_path(path, start=""):
+        if path.get('type') == 'sequence':
+            print(f"{start}Sequence")
+            for v in path.get('value'):
+                print_path(v, start=f"\t{start}")
+        elif path.get('type') == 'parallel':
+            print(f"{start}Parallel")
+            for v in path.get('value'):
+                print_path(v, start=f"\t{start}")
+        else:
+            print(f"{start}{path.get('type')}: {path.get('value')}")
+        
+    for path in paths_to_substate:
+        print_path(path)
 
 
 if __name__ == "__main__":

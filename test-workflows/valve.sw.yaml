@@ -146,6 +146,10 @@ states:
     transition: test
   
   - name: test
-    type: operation
+    type: foreach
+    inputCollection: "${ .orders }"
+    iterationParam: "singleorder"
+    outputCollection: "${ .provisionresults }"
     actions:
       - functionRef: test
+    end: true
