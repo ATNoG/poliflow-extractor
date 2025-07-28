@@ -30,7 +30,10 @@ events:
 functions:
   - name: f1
     type: custom
-    operation: knative:services.v1.serving.knative.dev/f1-upload-listing?method=POST #&returnStatusCode=true
+    operation: knative:services.v1.serving.knative.dev/sample-function?method=POST
+  - name: f2
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/sample-function?method=POST
   - name: process-event
     type: expression
     operation: |
@@ -45,6 +48,24 @@ functions:
           ) + .data
         )
       }
+  - name: f3
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/sample-function?method=POST
+  - name: f4
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/sample-function?method=POST
+  - name: f5
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/sample-function?method=POST
+  - name: f6
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/sample-function?method=POST
+  - name: f7
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/sample-function?method=POST
+  - name: test
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/sample-function?method=POST
 
 states:
   - name: entry-event
@@ -52,8 +73,15 @@ states:
     onEvents:
       - eventRefs:
           - triggerEvent
+          - newPhoto
         actions:
         - functionRef: process-event
+        - functionRef: f1
+      - eventRefs:
+          - triggerEvent
+        actions:
+        - functionRef: process-event
+    exclusive: true
     stateDataFilter:
       output: "${ .transformed }"
     transition: entry-decision

@@ -1,0 +1,43 @@
+result -> [
+    {'type': 'sequence', 'value': 
+        [
+            [
+                {'type': 'event', 'value': {'name': 'triggerEvent', 'source': 'http-event-sources', 'type': 'http.request.received', 'kind': 'consumed'}}
+                {'type': 'function:expression', 'value': None}
+            ], 
+            {'type': 'function:knative', 'value': {'service': 'authorization'}},
+            {'type': 'data_based_switch_state', 'value': {'name': 'authorization-decide', 'type': 'switch', 'dataConditions': [{'condition': '${ ."do-verification" == true }', 'transition': 'verify-transaction'}], 'defaultCondition': {'transition': 'result'}}},
+            {'type': 'function:knative', 'value': {'service': 'verify-transaction'}}, 
+            {'type': 'data_based_switch_state', 'value': {'name': 'verify-transaction-decide', 'type': 'switch', 'dataConditions': [{'condition': '${ ."do-transaction" == true }', 'transition': 'transaction'}], 'defaultCondition': {'transition': 'result'}}}, 
+            {'type': 'function:knative', 'value': {'service': 'transaction'}}
+        ]
+    }, 
+    {'type': 'sequence', 'value': 
+        [
+            [
+                {'type': 'event', 'value': {'name': 'triggerEvent', 'source': 'http-event-sources', 'type': 'http.request.received', 'kind': 'consumed'}}, {'type': 'function:expression', 'value': None}
+            ], 
+            {'type': 'function:knative', 'value': {'service': 'authorization'}}, 
+            {'type': 'data_based_switch_state', 'value': {'name': 'authorization-decide', 'type': 'switch', 'dataConditions': [{'condition': '${ ."do-verification" == true }', 'transition': 'verify-transaction'}], 'defaultCondition': {'transition': 'result'}}}
+        ]
+    }, 
+    {'type': 'sequence', 'value': [[{'type': 'event', 'value': {'name': 'triggerEvent', 'source': 'http-event-sources', 'type': 'http.request.received', 'kind': 'consumed'}}, {'type': 'function:expression', 'value': None}], {'type': 'function:knative', 'value': {'service': 'authorization'}}, {'type': 'data_based_switch_state', 'value': {'name': 'authorization-decide', 'type': 'switch', 'dataConditions': [{'condition': '${ ."do-verification" == true }', 'transition': 'verify-transaction'}], 'defaultCondition': {'transition': 'result'}}}, {'type': 'function:knative', 'value': {'service': 'verify-transaction'}}, {'type': 'data_based_switch_state', 'value': {'name': 'verify-transaction-decide', 'type': 'switch', 'dataConditions': [{'condition': '${ ."do-transaction" == true }', 'transition': 'transaction'}], 'defaultCondition': {'transition': 'result'}}}]}
+]
+
+
+
+
+
+
+result -> [
+    {'type': 'sequence', 'value': 
+        [
+            {'type': 'event', 'value': {'name': 'triggerEvent', 'source': 'http-event-sources', 'type': 'http.request.received', 'kind': 'consumed'}}, 
+            {'type': 'function:expression', 'value': None},
+            {'type': 'function:knative', 'value': {'operation': 'authorization'}}, 
+            {'type': 'data_based_switch_state', 'value': {'name': 'authorization-decide', 'type': 'switch', 'dataConditions': [{'condition': '${ ."do-verification" == true }', 'transition': 'verify-transaction'}], 'defaultCondition': {'transition': 'result'}}}, 
+            {'type': 'function:knative', 'value': {'operation': 'verify-transaction'}}, 
+            {'type': 'data_based_switch_state', 'value': {'name': 'verify-transaction-decide', 'type': 'switch', 'dataConditions': [{'condition': '${ ."do-transaction" == true }', 'transition': 'transaction'}], 'defaultCondition': {'transition': 'result'}}}, 
+            {'type': 'function:knative', 'value': {'operation': 'transaction'}}
+        ]
+    }, {'type': 'sequence', 'value': [{'type': 'event', 'value': {'name': 'triggerEvent', 'source': 'http-event-sources', 'type': 'http.request.received', 'kind': 'consumed'}}, {'type': 'function:expression', 'value': None}, {'type': 'function:knative', 'value': {'operation': 'authorization'}}, {'type': 'data_based_switch_state', 'value': {'name': 'authorization-decide', 'type': 'switch', 'dataConditions': [{'condition': '${ ."do-verification" == true }', 'transition': 'verify-transaction'}], 'defaultCondition': {'transition': 'result'}}}]}, {'type': 'sequence', 'value': [{'type': 'event', 'value': {'name': 'triggerEvent', 'source': 'http-event-sources', 'type': 'http.request.received', 'kind': 'consumed'}}, {'type': 'function:expression', 'value': None}, {'type': 'function:knative', 'value': {'operation': 'authorization'}}, {'type': 'data_based_switch_state', 'value': {'name': 'authorization-decide', 'type': 'switch', 'dataConditions': [{'condition': '${ ."do-verification" == true }', 'transition': 'verify-transaction'}], 'defaultCondition': {'transition': 'result'}}}, {'type': 'function:knative', 'value': {'operation': 'verify-transaction'}}, {'type': 'data_based_switch_state', 'value': {'name': 'verify-transaction-decide', 'type': 'switch', 'dataConditions': [{'condition': '${ ."do-transaction" == true }', 'transition': 'transaction'}], 'defaultCondition': {'transition': 'result'}}}]}]
