@@ -1,5 +1,5 @@
-from enum import Enum
-from typing import List, Tuple
+import json
+from typing import List
 from serverlessworkflow.sdk.workflow import Workflow
 from serverlessworkflow.sdk.state_machine_generator import StateMachineGenerator
 from serverlessworkflow.sdk.state_machine_extensions import CustomHierarchicalMachine
@@ -107,10 +107,8 @@ def get_nested_transition_path(
             if path["type"] == "sequence":
                 for p in path["value"]:
                     transition_path.append(p.copy())
-                    # print(p)
                     if next_state_path["type"] == "sequence":
                         for nsp in next_state_path["value"]:
-                            # print(nsp)
                             transition_path.append(nsp)
                     else:
                         transition_path.append(next_state_path)
@@ -121,7 +119,6 @@ def get_nested_transition_path(
                         transition_path.append(nsp)
                 else:
                     transition_path.append(next_state_path)
-            # print(transition_path)
             final_path = {"type": "sequence", "value": transition_path}
     elif src_state.states:
         path = get_nested_path(
@@ -129,8 +126,6 @@ def get_nested_transition_path(
         )
         final_path = path
     else:
-        # if src_state.metadata and (f := src_state.metadata.get("function")):
-        #     print(f)
         final_path = {
             "type": "sequence",
             "value": [get_edge_node_info(state=src_state)],
@@ -140,8 +135,6 @@ def get_nested_transition_path(
 
 def get_nested_path(machine: HierarchicalMachine, state: NestedState, path: str):
     if not state.states:
-        # if state.metadata and (f := state.metadata.get("function")):
-        #     print(f)
         return {"type": "sequence", "value": [get_edge_node_info(state=state)]}
 
     if type(state.initial) == str:
@@ -286,6 +279,8 @@ def main():
             if substate.metadata and "function" in substate.metadata:
                 paths_to_substate = get_paths_to_substate(machine, substate)
                 print(substate.name, paths_to_substate, sep=" -> ")
+                with open(f"{substate.name}.json", 'w') as f:
+                    json.dump(paths_to_substate, f)
                 # for path in paths_to_substate:
                 #     print_path(path)
 
