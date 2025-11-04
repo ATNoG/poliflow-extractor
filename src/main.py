@@ -1,4 +1,5 @@
 import json
+import os
 from typing import List
 from serverlessworkflow.sdk.workflow import Workflow
 from serverlessworkflow.sdk.state_machine_generator import StateMachineGenerator
@@ -7,6 +8,7 @@ from transitions.extensions.nesting import HierarchicalMachine, NestedState
 
 NestedState.separator = "."
 
+WORKFLOW_PATH = "../test-workflows/valve.sw.yaml"
 
 def get_most_inner_states(
     machine: HierarchicalMachine, state: NestedState
@@ -256,15 +258,7 @@ def print_path(path, start=""):
 
 def main():
     subflows = []
-    # with open("../test-workflows/valve.sw.yaml") as f:
-    #     workflow = Workflow.from_source(f.read())
-    # with open("../test-workflows/valve-advertise-listing.sw.yaml") as f:
-    #     subflows.append(Workflow.from_source(f.read()))
-    # with open("../test-workflows/test.sw.yaml") as f:
-    #     subflows.append(Workflow.from_source(f.read()))
-    # with open("../test-workflows/bank-app.yaml") as f:
-    #     workflow = Workflow.from_source(f.read())
-    with open("../test-workflows/valve.sw.yaml") as f:
+    with open(WORKFLOW_PATH) as f:
         workflow = Workflow.from_source(f.read())
 
     machine = CustomHierarchicalMachine(
@@ -282,15 +276,19 @@ def main():
     final_paths = {}
     for state in machine.states.values():
         for substate in get_most_inner_states(machine, state):
-            if substate.metadata and "function" in substate.metadata:
+            print(f"METADATA: {substate.metadata}\n\n\n", substate.name)
+            if substate.metadata and any(e in substate.metadata for e in ("function", "event")):
                 paths_to_substate = get_paths_to_substate(machine, substate)
-                if substate.name not in final_paths:
-                    final_paths[substate.name] = []
-                final_paths[substate.name].extend(paths_to_substate)
-                
+                name = substate.name if "function" in substate.metadata else substate.metadata["event"]["source"] if "result" not in substate.metadata["event"] else substate.metadata["event"]["result"]["source"]
+                if name not in final_paths:
+                    final_paths[name] = []
+                final_paths[name].extend(paths_to_substate)
+
+    if not os.path.exists(path := WORKFLOW_PATH.split("/")[-1].split(".")[0]):
+        os.mkdir(path)
     for substate in final_paths:
         print(substate, final_paths[substate], sep=" -> ")
-        with open(f"{substate}.json", 'w') as f:
+        with open(f"{path}/{substate}.json", 'w') as f:
             json.dump(final_paths[substate], f)
 
 
