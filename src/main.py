@@ -52,33 +52,36 @@ def get_paths_to_node(
 
 
 def get_edge_node_info(state: NestedState):
-    edge_type = state.tags[0]
+    if len(state.tags) > 0:
+        edge_type = state.tags[0]
 
-    def deep_serialize(value):
-        if isinstance(value, dict):
-            return {k: deep_serialize(v) for k, v in value.items()}
-        elif isinstance(value, list):
-            return [deep_serialize(v) for v in value]
-        elif hasattr(value, "serialize") and callable(value.serialize):
-            if not hasattr(value, "_default_values"):
-                value._default_values = {}
-            return value.serialize().__dict__
-        else:
-            return value
+        def deep_serialize(value):
+            if isinstance(value, dict):
+                return {k: deep_serialize(v) for k, v in value.items()}
+            elif isinstance(value, list):
+                return [deep_serialize(v) for v in value]
+            elif hasattr(value, "serialize") and callable(value.serialize):
+                if not hasattr(value, "_default_values"):
+                    value._default_values = {}
+                return value.serialize().__dict__
+            else:
+                return value
 
-    edge_value = deep_serialize(state.metadata[list(state.metadata.keys())[0]])
-    if edge_type == "function":
-        if (
-            edge_value["type"] == "custom"
-            and (operation := edge_value["operation"].split(":"))[0] == "knative"
-        ):
-            edge_type = "function:knative"
-            edge_value = {"operation": operation[1].split("/")[1].split("?")[0]}
-        else:
-            edge_type = f"function:{edge_value['type']}"
-            edge_value = None  # TODO -> in the future, change this back to the original edge_value; for now, it is easier to debug without it
+        edge_value = deep_serialize(state.metadata[list(state.metadata.keys())[0]])
+        print(f"{edge_value}, {state.metadata}\n\n\n")
+        if edge_type == "function":
+            if (
+                edge_value["type"] == "custom"
+                and (operation := edge_value["operation"].split(":"))[0] == "knative"
+            ):
+                edge_type = "function:knative"
+                edge_value = {"operation": operation[1].split("/")[1].split("?")[0]}
+            else:
+                edge_type = f"function:{edge_value['type']}"
+                edge_value = None  # TODO -> in the future, change this back to the original edge_value; for now, it is easier to debug without it
 
-    return {"type": edge_type, "value": edge_value}
+        return {"type": edge_type, "value": edge_value}
+    return None
 
 
 def get_nested_transition_path(
@@ -259,7 +262,9 @@ def main():
     #     subflows.append(Workflow.from_source(f.read()))
     # with open("../test-workflows/test.sw.yaml") as f:
     #     subflows.append(Workflow.from_source(f.read()))
-    with open("../test-workflows/bank-app.yaml") as f:
+    # with open("../test-workflows/bank-app.yaml") as f:
+    #     workflow = Workflow.from_source(f.read())
+    with open("../test-workflows/valve.sw.yaml") as f:
         workflow = Workflow.from_source(f.read())
 
     machine = CustomHierarchicalMachine(
@@ -274,15 +279,19 @@ def main():
         subflows=subflows,
     ).generate()
 
+    final_paths = {}
     for state in machine.states.values():
         for substate in get_most_inner_states(machine, state):
             if substate.metadata and "function" in substate.metadata:
                 paths_to_substate = get_paths_to_substate(machine, substate)
-                print(substate.name, paths_to_substate, sep=" -> ")
-                with open(f"{substate.name}.json", 'w') as f:
-                    json.dump(paths_to_substate, f)
-                # for path in paths_to_substate:
-                #     print_path(path)
+                if substate.name not in final_paths:
+                    final_paths[substate.name] = []
+                final_paths[substate.name].extend(paths_to_substate)
+                
+    for substate in final_paths:
+        print(substate, final_paths[substate], sep=" -> ")
+        with open(f"{substate}.json", 'w') as f:
+            json.dump(final_paths[substate], f)
 
 
 if __name__ == "__main__":
