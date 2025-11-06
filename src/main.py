@@ -70,7 +70,6 @@ def get_edge_node_info(state: NestedState):
                 return value
 
         edge_value = deep_serialize(state.metadata[list(state.metadata.keys())[0]])
-        print(f"{edge_value}, {state.metadata}\n\n\n")
         if edge_type == "function":
             if (
                 edge_value["type"] == "custom"
@@ -139,6 +138,7 @@ def get_nested_transition_path(
 
 
 def get_nested_path(machine: HierarchicalMachine, state: NestedState, path: str):
+    print(state.__dict__)
     if not state.states:
         return {"type": "sequence", "value": [get_edge_node_info(state=state)]}
 
@@ -152,6 +152,9 @@ def get_nested_path(machine: HierarchicalMachine, state: NestedState, path: str)
             init = state.states[s]
             parallel.append(get_nested_transition_path(machine, state, init, path))
         path = {"type": "parallel", "value": parallel}
+    
+    if state.tags and 'foreach_state' in state.tags:
+        path = {"type": "loop", "value": path}
 
     return path
 
@@ -276,7 +279,6 @@ def main():
     final_paths = {}
     for state in machine.states.values():
         for substate in get_most_inner_states(machine, state):
-            print(f"METADATA: {substate.metadata}\n\n\n", substate.name)
             if substate.metadata and any(e in substate.metadata for e in ("function", "event")):
                 paths_to_substate = get_paths_to_substate(machine, substate)
                 name = substate.name if "function" in substate.metadata else substate.metadata["event"]["source"] if "result" not in substate.metadata["event"] else substate.metadata["event"]["result"]["source"]
@@ -287,7 +289,7 @@ def main():
     if not os.path.exists(path := WORKFLOW_PATH.split("/")[-1].split(".")[0]):
         os.mkdir(path)
     for substate in final_paths:
-        print(substate, final_paths[substate], sep=" -> ")
+        # print(substate, final_paths[substate], sep=" -> ")
         with open(f"{path}/{substate}.json", 'w') as f:
             json.dump(final_paths[substate], f)
 
