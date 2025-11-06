@@ -138,7 +138,10 @@ def get_nested_transition_path(
 
 
 def get_nested_path(machine: HierarchicalMachine, state: NestedState, path: str):
-    print(state.__dict__)
+    # verify if the state is one that contains actions
+    if state.tags and any(t in state.tags for t in ('switch_state', 'sleep_state', 'inject_state')):
+        return None
+
     if not state.states:
         return {"type": "sequence", "value": [get_edge_node_info(state=state)]}
 
@@ -193,7 +196,9 @@ def get_paths_to_substate(machine: HierarchicalMachine, target_substate: NestedS
         new_path = {"type": "sequence", "value": []}
         for node in path[:-1]:
             np = get_nested_path(machine, node, node.name)
-            if np["type"] == "sequence":
+            if not np:
+                continue
+            elif np["type"] == "sequence":
                 new_path["value"].extend(np["value"])
                 # new_path["value"].append(
                 #     np["value"] if len(np["value"]) > 1 else np["value"][0]
