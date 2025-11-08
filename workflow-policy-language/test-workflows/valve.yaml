@@ -1,0 +1,86 @@
+entries:
+  - entry-event
+  - f4-photo-verification
+states:
+- id: entry-event
+  type: event-source
+  value: entry-point
+  transition: decide-entry
+- id: decide-entry
+  type: switch
+  value:
+  - f1-upload-listing
+  - f2-upload-verification
+  - f3-upload-client
+- id: f1-upload-listing
+  type: function:knative
+  value: f1
+  transition: d1
+- id: f4-photo-verification
+  type: function:knative
+  value: f4
+  transition: f4-sequence
+- id: f4-sequence
+  type: sequence
+  value:
+    - loop-d1
+    - f5-image-correction
+- id: loop-d1
+  type: loop
+  value: d1
+- id: d1
+  type: database
+  value: baas:dabase1
+- id: f5-image-correction
+  type: function:knative
+  value: f5
+  transition: f6-post-website
+- id: f6-post-website
+  type: function:knative
+  value: f6
+  transition: f6-sequence
+- id: f6-sequence
+  type: sequence
+  value:
+    - f7-add-verified-label
+    - f8-advertise-listing
+- id: f7-add-verified-label
+  type: function:knative
+  value: f7
+  transition: d2
+- id: d2
+  type: database
+  value: baas:dabase2
+- id: f8-advertise-listing
+  type: function:knative
+  value: f8
+  transition: f8-sequence
+- id: f8-sequence
+  type: sequence
+  value:
+    - d2
+    - advertise-parallel
+- id: advertise-parallel
+  type: parallel
+  value:
+    - send-sms
+    - tweet
+    - messenger-chatbot
+- id: send-sms
+  type: function:knative
+  value: f9
+- id: tweet
+  type: function:knative
+  value: f10
+- id: messenger-chatbot
+  type: function:knative
+  value: f11
+- id: f2-upload-verification
+  type: function:knative
+  value: f2
+  transition: d2
+- id: f3-upload-client
+  type: function:knative
+  value: f3
+  transition: d2
+# invoke: async/sync
