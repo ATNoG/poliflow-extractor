@@ -1,0 +1,54 @@
+id: paralllel
+name: paralllel
+version: '0.1.0'
+specVersion: '0.8'
+description: Parallel routing example
+start: entry-event
+
+events:
+  - name: triggerEvent
+    type: http.request.received
+    source: http-event-sources
+    kind: consumed
+
+# https://sonataflow.org/serverlessworkflow/latest/core/custom-functions-support.html#con-func-knative
+functions:
+  - name: function-a
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/function-a?method=GET&returnHeaders=true
+  - name: function-b
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/function-b?method=GET&returnHeaders=true
+  - name: function-c
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/function-c?method=GET&returnHeaders=true
+  - name: result
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/result?method=POST
+
+states:
+  - name: entry-event
+    type: event
+    onEvents:
+      - eventRefs:
+          - triggerEvent
+        eventDataFilter:
+          data: "${ . }"
+    transition: loop
+  
+  - name: loop
+    type: foreach
+    actions:
+      - functionRef: function-a
+      - functionRef: function-b
+    mode: sequential
+    inputCollection: "${ .iteration }"
+    iterationParam: "."
+    transition: result
+
+  - name: result
+    type: operation
+    actions:
+      - functionRef:
+          refName: result
+    end: true

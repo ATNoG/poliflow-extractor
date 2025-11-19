@@ -1,0 +1,13 @@
+inbound:
+- type: sequence
+  value:
+  - transitions:
+    - type: sequence
+      value: []
+    type: event-source
+    value: entry-point
+outbound:
+- type: sequence
+  value:
+  - type: database
+    value: baas:dabase1

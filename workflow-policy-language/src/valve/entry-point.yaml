@@ -1,0 +1,29 @@
+inbound:
+- type: sequence
+  value: []
+- type: sequence
+  value: []
+- type: sequence
+  value: []
+outbound:
+- type: sequence
+  value:
+  - transitions:
+    - type: database
+      value: baas:dabase1
+    type: function:knative
+    value: f1
+- type: sequence
+  value:
+  - transitions:
+    - type: database
+      value: baas:dabase2
+    type: function:knative
+    value: f2
+- type: sequence
+  value:
+  - transitions:
+    - type: database
+      value: baas:dabase2
+    type: function:knative
+    value: f3

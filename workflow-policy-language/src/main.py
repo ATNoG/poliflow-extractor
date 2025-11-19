@@ -1,8 +1,12 @@
+import os
+import shutil
 import json
 from typing import Any
 from collections.abc import Iterable
 import yaml
 from workflow_policy_language.validation import validate
+
+WORKFLOW_PATH = "../test-workflows/valve.yaml"
 
 AtomicNode = dict[str, Any]
 PathElem = Any  # atomic node dict or control-node dict
@@ -281,14 +285,16 @@ def extract_per_function_paths(full_paths: list[dict[str, Any]]) -> dict[str, di
 
 # ---- Example driver ----
 if __name__ == "__main__":
-    wf = load_workflow("../test-workflows/valve.yaml")
-    full = generate_all_paths(wf)  # list of top-level sequence objects
-    print(json.dumps(full))
-    # # print("=== FULL PATHS ===")
-    # # import json
-    # print(json.dumps(full, indent=2))
+    wf = load_workflow(WORKFLOW_PATH)
+    full = generate_all_paths(wf)
     perfn = extract_per_function_paths(full)
-    print(perfn.keys())
-    print(json.dumps(perfn['f4']))
-    # print("\n=== PER-FUNCTION PATHS ===")
-    # print(json.dumps(perfn, indent=2))
+
+    if os.path.exists(path := WORKFLOW_PATH.split("/")[-1].split(".")[0]):
+        shutil.rmtree(path)
+    os.mkdir(path)
+
+    for k in perfn:
+        with open(f"{path}/{k}.json", "w") as f:
+            f.write(json.dumps(perfn[k]))
+        with open(f"{path}/{k}.yaml", "w") as f:
+            f.write(yaml.dump(perfn[k]))

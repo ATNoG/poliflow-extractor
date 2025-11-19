@@ -1,6 +1,9 @@
 import json
 import os
+import shutil
 from typing import List
+
+import yaml
 from serverlessworkflow.sdk.workflow import Workflow
 from serverlessworkflow.sdk.state_machine_generator import StateMachineGenerator
 from serverlessworkflow.sdk.state_machine_extensions import CustomHierarchicalMachine
@@ -8,7 +11,8 @@ from transitions.extensions.nesting import HierarchicalMachine, NestedState
 
 NestedState.separator = "."
 
-WORKFLOW_PATH = "../test-workflows/valve.sw.yaml"
+WORKFLOW_PATH = "../test-workflows/loop.sw.yaml"
+
 
 def get_most_inner_states(
     machine: HierarchicalMachine, state: NestedState
@@ -137,9 +141,11 @@ def get_nested_transition_path(
     return final_path
 
 
-def get_nested_path(machine: HierarchicalMachine, state: NestedState, path: str):
+def get_nested_path(machine: HierarchicalMachine, state: NestedState, path: str, loop_min: int = 0):
     # verify if the state is one that contains actions
-    if state.tags and any(t in state.tags for t in ('switch_state', 'sleep_state', 'inject_state')):
+    if state.tags and any(
+        t in state.tags for t in ("switch_state", "sleep_state", "inject_state")
+    ):
         return None
 
     if not state.states:
@@ -155,9 +161,9 @@ def get_nested_path(machine: HierarchicalMachine, state: NestedState, path: str)
             init = state.states[s]
             parallel.append(get_nested_transition_path(machine, state, init, path))
         path = {"type": "parallel", "value": parallel}
-    
-    if state.tags and 'foreach_state' in state.tags:
-        path = {"type": "loop", "value": path}
+
+    if state.tags and "foreach_state" in state.tags:
+        path = {"type": "loop", "value": path, "min": loop_min}
 
     return path
 
@@ -191,11 +197,18 @@ def get_paths_to_substate(machine: HierarchicalMachine, target_substate: NestedS
         else:
             outer_paths.extend(get_paths_to_node(machine, state))
 
-    paths = []
+    # the entries are tuples, where the first entry is the path and the second is the property consider-last-entire-node
+    rd_outer_paths = []
     for path in outer_paths:
+        rd_outer_paths.append((path.copy(), False))
+        if 'foreach_state' in path[-1].tags:
+            rd_outer_paths.append((path.copy(), True))
+
+    paths = []
+    for path, consider_last_entire_node in rd_outer_paths:
         new_path = {"type": "sequence", "value": []}
-        for node in path[:-1]:
-            np = get_nested_path(machine, node, node.name)
+        for node in (path[:-1] if not consider_last_entire_node else path):
+            np = get_nested_path(machine, node, node.name, loop_min=1 if consider_last_entire_node else 0)
             if not np:
                 continue
             elif np["type"] == "sequence":
@@ -205,6 +218,7 @@ def get_paths_to_substate(machine: HierarchicalMachine, target_substate: NestedS
                 # )
             else:  # TODO should verify if it is of type parallel
                 new_path["value"].append(np)
+
         # For the last node in the path
         last_node_name = path[-1].name
         if machine.get_state(last_node_name).states:
@@ -284,19 +298,32 @@ def main():
     final_paths = {}
     for state in machine.states.values():
         for substate in get_most_inner_states(machine, state):
-            if substate.metadata and any(e in substate.metadata for e in ("function", "event")):
+            if substate.metadata and any(
+                e in substate.metadata for e in ("function", "event")
+            ):
                 paths_to_substate = get_paths_to_substate(machine, substate)
-                name = substate.name if "function" in substate.metadata else substate.metadata["event"]["source"] if "result" not in substate.metadata["event"] else substate.metadata["event"]["result"]["source"]
+                name = (
+                    substate.name
+                    if "function" in substate.metadata
+                    else (
+                        substate.metadata["event"]["source"]
+                        if "result" not in substate.metadata["event"]
+                        else substate.metadata["event"]["result"]["source"]
+                    )
+                )
                 if name not in final_paths:
                     final_paths[name] = []
                 final_paths[name].extend(paths_to_substate)
 
-    if not os.path.exists(path := WORKFLOW_PATH.split("/")[-1].split(".")[0]):
-        os.mkdir(path)
+    if os.path.exists(path := WORKFLOW_PATH.split("/")[-1].split(".")[0]):
+        shutil.rmtree(path)
+    os.mkdir(path)
     for substate in final_paths:
         # print(substate, final_paths[substate], sep=" -> ")
-        with open(f"{path}/{substate}.json", 'w') as f:
+        with open(f"{path}/{substate}.json", "w") as f:
             json.dump(final_paths[substate], f)
+        with open(f"{path}/{substate}.yaml", "w") as f:
+            f.write(yaml.dump(final_paths[substate]))
 
 
 if __name__ == "__main__":
