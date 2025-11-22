@@ -12,6 +12,7 @@ from transitions.extensions.nesting import HierarchicalMachine, NestedState
 NestedState.separator = "."
 
 WORKFLOW_PATH = "../test-workflows/loop.sw.yaml"
+SUBFLOWS_PATHS = ["../test-workflows/subloop.sw.yaml"]
 
 
 def get_most_inner_states(
@@ -96,19 +97,21 @@ def get_nested_transition_path(
     machine_path,
 ):
     final_path = {}
-    if machine.get_nested_transitions(src_path=[f"{machine_path}.{src_state.name}"]):
+    if nested_transitions := machine.get_nested_transitions(src_path=[f"{machine_path}.{src_state.name}"]):
         path = get_nested_path(
             machine, src_state, path=f"{machine_path}.{src_state.name}"
         )
-        for t in machine.get_nested_transitions(
-            src_path=[f"{machine_path}.{src_state.name}"]
-        ):
-            next_state_path = get_nested_transition_path(
-                machine,
-                outer_state,
-                outer_state.states[t.dest.split(machine.state_cls.separator)[-1]],
-                machine_path,
-            )
+        for t in nested_transitions:
+            # Avoid infinite recursion in foreach states, where one of the transitions is from it to itself
+            if "foreach_state" in src_state.tags and t.source == t.dest:
+                next_state_path = {'type': 'sequence', 'value': []}
+            else:
+                next_state_path = get_nested_transition_path(
+                    machine,
+                    outer_state,
+                    outer_state.states[t.dest.split(machine.state_cls.separator)[-1]],
+                    machine_path,
+                )
             transition_path = []
 
             # TODO -> THIS PIECE OF CODE CAN BE IMPROVED, IT REPEATS TWO TIMES
@@ -127,7 +130,8 @@ def get_nested_transition_path(
                         transition_path.append(nsp)
                 else:
                     transition_path.append(next_state_path)
-            final_path = {"type": "sequence", "value": transition_path}
+
+            final_path = {"type": "sequence", "value": transition_path} if len(transition_path) != 1 else transition_path[0]
     elif src_state.states:
         path = get_nested_path(
             machine, src_state, path=f"{machine_path}.{src_state.name}"
@@ -168,7 +172,7 @@ def get_nested_path(machine: HierarchicalMachine, state: NestedState, path: str,
     return path
 
 
-def get_paths_to_substate(machine: HierarchicalMachine, target_substate: NestedState):
+def get_paths_to_substate(machine: HierarchicalMachine, target_substate: NestedState, last_loop_node = False):
     def find_outer_path_to_substate(
         machine: HierarchicalMachine,
         outer_state: NestedState,
@@ -200,9 +204,10 @@ def get_paths_to_substate(machine: HierarchicalMachine, target_substate: NestedS
     # the entries are tuples, where the first entry is the path and the second is the property consider-last-entire-node
     rd_outer_paths = []
     for path in outer_paths:
-        rd_outer_paths.append((path.copy(), False))
-        if 'foreach_state' in path[-1].tags:
+        if last_loop_node and 'foreach_state' in path[-1].tags:
             rd_outer_paths.append((path.copy(), True))
+        else:
+            rd_outer_paths.append((path.copy(), False))
 
     paths = []
     for path, consider_last_entire_node in rd_outer_paths:
@@ -213,9 +218,6 @@ def get_paths_to_substate(machine: HierarchicalMachine, target_substate: NestedS
                 continue
             elif np["type"] == "sequence":
                 new_path["value"].extend(np["value"])
-                # new_path["value"].append(
-                #     np["value"] if len(np["value"]) > 1 else np["value"][0]
-                # )
             else:  # TODO should verify if it is of type parallel
                 new_path["value"].append(np)
 
@@ -255,7 +257,7 @@ def get_paths_to_substate(machine: HierarchicalMachine, target_substate: NestedS
                                 dest=".".join(dest[1:]),
                             )
 
-            for np in get_paths_to_substate(new_machine, target_substate):
+            for np in get_paths_to_substate(new_machine, target_substate, last_loop_node):
                 newer_path = new_path.copy()
                 newer_path["value"].extend(np["value"])
                 paths.append(newer_path)
@@ -280,6 +282,10 @@ def print_path(path, start=""):
 
 def main():
     subflows = []
+    for subflow_path in SUBFLOWS_PATHS:
+        with open(subflow_path) as f:
+            subflows.append(Workflow.from_source(f.read()))
+
     with open(WORKFLOW_PATH) as f:
         workflow = Workflow.from_source(f.read())
 
@@ -302,6 +308,9 @@ def main():
                 e in substate.metadata for e in ("function", "event")
             ):
                 paths_to_substate = get_paths_to_substate(machine, substate)
+                for np in get_paths_to_substate(machine, substate, last_loop_node=True):
+                    if np not in paths_to_substate:
+                        paths_to_substate.append(np)
                 name = (
                     substate.name
                     if "function" in substate.metadata

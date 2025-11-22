@@ -1,8 +1,8 @@
-id: paralllel
-name: paralllel
+id: loop
+name: loop
 version: '0.1.0'
 specVersion: '0.8'
-description: Parallel routing example
+description: Parallel loop example
 start: entry-event
 
 events:
@@ -34,17 +34,28 @@ states:
           - triggerEvent
         eventDataFilter:
           data: "${ . }"
-    transition: loop
+    transition: parallel
   
-  - name: loop
-    type: foreach
-    actions:
-      - functionRef: function-a
-      - functionRef: function-b
-    mode: sequential
-    inputCollection: "${ .iteration }"
-    iterationParam: "."
+  - name: parallel
+    type: parallel
+    branches:
+      - name: loop-branch
+        actions:
+          - subFlowRef: subloop
+      - name: function-branch
+        actions:
+          - functionRef: function-c
     transition: result
+
+  # - name: loop
+  #   type: foreach
+  #   actions:
+  #     - functionRef: function-a
+  #     - functionRef: function-b
+  #   mode: sequential
+  #   inputCollection: "${ .iteration }"
+  #   iterationParam: "."
+  #   transition: result
 
   - name: result
     type: operation

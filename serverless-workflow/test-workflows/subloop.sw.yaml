@@ -1,0 +1,55 @@
+id: subloop
+name: subloop
+version: '0.1.0'
+specVersion: '0.8'
+description: Loop subflow part of the parallel loop workflow
+start: first
+
+# https://sonataflow.org/serverlessworkflow/latest/core/custom-functions-support.html#con-func-knative
+functions:
+  - name: function-a
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/function-a?method=GET&returnHeaders=true
+  - name: function-b
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/function-b?method=GET&returnHeaders=true
+  - name: function-d
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/function-d?method=GET&returnHeaders=true
+  - name: function-e
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/function-e?method=GET&returnHeaders=true
+  - name: function-f
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/function-f?method=GET&returnHeaders=true
+
+states:
+  - name: first
+    type: operation
+    actions:
+      - functionRef: function-a
+    transition: loop
+  # - name: d
+  #   type: operation
+  #   actions:
+  #     - functionRef: function-d
+  #   transition: e
+  # - name: e
+  #   type: operation
+  #   actions:
+  #     - functionRef: function-e
+  #   transition: f
+  # - name: f
+  #   type: operation
+  #   actions:
+  #     - functionRef: function-f
+  #   end: true
+  - name: loop
+    type: foreach
+    actions:
+      - functionRef: function-d
+      - functionRef: function-b
+    mode: sequential
+    inputCollection: "${ .iteration }"
+    iterationParam: "."
+    end: True

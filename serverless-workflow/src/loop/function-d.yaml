@@ -9,9 +9,6 @@
   - type: function:knative
     value:
       operation: function-a
-  - type: function:knative
-    value:
-      operation: function-d
 - type: sequence
   value:
   - type: event
@@ -34,6 +31,3 @@
       - type: function:knative
         value:
           operation: function-b
-  - type: function:knative
-    value:
-      operation: function-d
