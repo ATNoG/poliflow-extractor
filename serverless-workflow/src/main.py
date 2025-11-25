@@ -163,7 +163,13 @@ def get_nested_path(
         parallel = []
         for s in state.initial:
             init = state.states[s]
-            parallel.append(get_nested_transition_path(machine, state, init, path))
+            ns = get_nested_transition_path(machine, state, init, path)
+
+            # IMPORTANT OPTIMIZATION: for parallel inside another parallel, it must treat it as part of the outer one, because it is the same execution in terms of CFI
+            if ns["type"] == "parallel":
+                parallel.extend(ns["value"])
+            else:
+                parallel.append(ns)
         path = {"type": "parallel", "value": parallel}
 
     if state.tags and "foreach_state" in state.tags:

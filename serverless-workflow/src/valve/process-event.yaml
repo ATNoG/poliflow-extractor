@@ -4,8 +4,5 @@
     value:
       kind: consumed
       name: triggerEvent
-      source: http-event-sources
+      source: entry-point
       type: http.request.received
-  - type: function:knative
-    value:
-      operation: function-a

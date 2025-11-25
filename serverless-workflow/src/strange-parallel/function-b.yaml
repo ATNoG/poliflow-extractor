@@ -1,0 +1,44 @@
+- type: sequence
+  value:
+  - type: event
+    value:
+      kind: consumed
+      name: triggerEvent
+      source: http-event-sources
+      type: http.request.received
+  - type: function:knative
+    value:
+      operation: function-a
+- type: sequence
+  value:
+  - type: event
+    value:
+      kind: consumed
+      name: triggerEvent
+      source: http-event-sources
+      type: http.request.received
+  - type: function:knative
+    value:
+      operation: function-a
+- type: sequence
+  value:
+  - type: event
+    value:
+      kind: consumed
+      name: triggerEvent
+      source: http-event-sources
+      type: http.request.received
+  - type: function:knative
+    value:
+      operation: function-a
+- type: sequence
+  value:
+  - type: event
+    value:
+      kind: consumed
+      name: triggerEvent
+      source: http-event-sources
+      type: http.request.received
+  - type: function:knative
+    value:
+      operation: function-a

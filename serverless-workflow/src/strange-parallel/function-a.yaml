@@ -6,9 +6,3 @@
       name: triggerEvent
       source: http-event-sources
       type: http.request.received
-  - type: function:knative
-    value:
-      operation: function-a
-  - type: function:knative
-    value:
-      operation: function-b
