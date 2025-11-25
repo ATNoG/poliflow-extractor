@@ -30,7 +30,7 @@ def get_paths_to_node(
     def dfs(state: NestedState, path):
         path.append(state)
         transitions = [t for t in machine.get_transitions() if t.dest == state.name]
-        if not transitions:  # If no incoming transitions, it's a starting state
+        if not transitions or (len(transitions) == 1 and transitions[0].source == transitions[0].dest):  # If no incoming transitions, it's a starting state
             if (type(machine.initial) == str and state.name == machine.initial) or (
                 type(machine.initial) == list and state.name in machine.initial
             ):  # Ensure the path starts from the initial state
@@ -87,13 +87,15 @@ def get_nested_transition_path(
     outer_state: NestedState,
     src_state: NestedState,
     machine_path,
+    loop_dep_iterations,
+    loop_min
 ):
     final_path = {}
     if nested_transitions := machine.get_nested_transitions(
         src_path=[f"{machine_path}.{src_state.name}"]
     ):
         path = get_nested_path(
-            machine, src_state, path=f"{machine_path}.{src_state.name}"
+            machine, src_state, path=f"{machine_path}.{src_state.name}", loop_dep_iterations=loop_dep_iterations, loop_min=loop_min
         )
         for t in nested_transitions:
             # Avoid infinite recursion in foreach states, where one of the transitions is from it to itself
@@ -105,6 +107,8 @@ def get_nested_transition_path(
                     outer_state,
                     outer_state.states[t.dest.split(machine.state_cls.separator)[-1]],
                     machine_path,
+                    loop_dep_iterations,
+                    loop_min
                 )
             transition_path = []
 
@@ -132,7 +136,7 @@ def get_nested_transition_path(
             )
     elif src_state.states:
         path = get_nested_path(
-            machine, src_state, path=f"{machine_path}.{src_state.name}"
+            machine, src_state, path=f"{machine_path}.{src_state.name}", loop_dep_iterations=loop_dep_iterations, loop_min=loop_min
         )
         final_path = path
     else:
@@ -144,7 +148,7 @@ def get_nested_transition_path(
 
 
 def get_nested_path(
-    machine: HierarchicalMachine, state: NestedState, path: str, loop_min: int = 0
+    machine: HierarchicalMachine, state: NestedState, path: str, loop_dep_iterations: bool | None, loop_min: int = 0
 ):
     # verify if the state is one that contains actions
     if state.tags and any(
@@ -157,13 +161,13 @@ def get_nested_path(
 
     if type(state.initial) == str:
         path = get_nested_transition_path(
-            machine, state, state.states[state.initial], path
+            machine, state, state.states[state.initial], path, loop_dep_iterations, loop_min
         )
     else:
         parallel = []
         for s in state.initial:
             init = state.states[s]
-            ns = get_nested_transition_path(machine, state, init, path)
+            ns = get_nested_transition_path(machine, state, init, path, loop_dep_iterations, loop_min)
 
             # IMPORTANT OPTIMIZATION: for parallel inside another parallel, it must treat it as part of the outer one, because it is the same execution in terms of CFI
             if ns["type"] == "parallel":
@@ -173,13 +177,17 @@ def get_nested_path(
         path = {"type": "parallel", "value": parallel}
 
     if state.tags and "foreach_state" in state.tags:
-        path = {"type": "loop", "value": path, "min": loop_min}
+        if loop_dep_iterations:
+            path = {"type": "loop", "value": path, "min": loop_min}
+        else:
+            # We do this because the loop state's value is always a sequence (it is defined in actions)
+            path = {"type": "parallel", "value": [{"type": "sequence", "value": path["value"], "loop": True}]}
 
     return path
 
 
 def get_paths_to_substate(
-    machine: HierarchicalMachine, target_substate: NestedState, last_loop_node=False
+    machine: HierarchicalMachine, target_substate: NestedState, loop_dep_iterations, last_loop_node=False
 ):
     def find_outer_path_to_substate(
         machine: HierarchicalMachine,
@@ -222,7 +230,7 @@ def get_paths_to_substate(
         new_path = {"type": "sequence", "value": []}
         for node in (path[:-1] if not consider_last_entire_node else path):
             np = get_nested_path(
-                machine, node, node.name, loop_min=1 if consider_last_entire_node else 0
+                machine, node, node.name, loop_dep_iterations, loop_min=1 if consider_last_entire_node else 0
             )
             if not np:
                 continue
@@ -268,7 +276,7 @@ def get_paths_to_substate(
                             )
 
             for np in get_paths_to_substate(
-                new_machine, target_substate, last_loop_node
+                new_machine, target_substate, loop_dep_iterations, last_loop_node
             ):
                 newer_path = new_path.copy()
                 newer_path["value"].extend(np["value"])
@@ -324,10 +332,10 @@ def main(
             if substate.metadata and any(
                 e in substate.metadata for e in ("function", "event")
             ):
-                paths_to_substate = get_paths_to_substate(machine, substate)
+                paths_to_substate = get_paths_to_substate(machine, substate, loop_dep_iterations)
                 if loop_dep_iterations:
                     for np in get_paths_to_substate(
-                        machine, substate, last_loop_node=True
+                        machine, substate, loop_dep_iterations, last_loop_node=True
                     ):
                         if np not in paths_to_substate:
                             paths_to_substate.append(np)

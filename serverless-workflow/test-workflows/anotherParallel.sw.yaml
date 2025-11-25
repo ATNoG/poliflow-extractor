@@ -1,0 +1,34 @@
+id: anotherParallel
+name: anotherParallel
+version: '0.1.0'
+specVersion: '0.8'
+description: Inner parallel
+start: parallel
+
+events:
+  - name: triggerEvent
+    type: http.request.received
+    source: http-event-sources
+    kind: consumed
+
+# https://sonataflow.org/serverlessworkflow/latest/core/custom-functions-support.html#con-func-knative
+functions:
+  - name: function-b
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/function-b?method=GET&returnHeaders=true
+
+states:
+  - name: parallel
+    type: parallel
+    branches:
+      - name: branch-b
+        actions:
+          - functionRef:
+              refName: function-b
+      - name: branch-c
+        actions:
+          - functionRef:
+              refName: function-b
+      
+    end: true
+

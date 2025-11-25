@@ -8,7 +8,4 @@
       type: http.request.received
   - type: function:knative
     value:
-      operation: function-a
-  - type: function:knative
-    value:
       operation: function-b

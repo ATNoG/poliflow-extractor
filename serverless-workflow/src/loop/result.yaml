@@ -8,22 +8,15 @@
       type: http.request.received
   - type: parallel
     value:
-    - type: sequence
+    - loop: true
+      type: sequence
       value:
       - type: function:knative
         value:
-          operation: function-a
-      - min: 0
-        type: loop
+          operation: function-b
+      - type: function:knative
         value:
-          type: sequence
-          value:
-          - type: function:knative
-            value:
-              operation: function-b
-          - type: function:knative
-            value:
-              operation: function-d
+          operation: function-d
     - type: sequence
       value:
       - type: function:knative

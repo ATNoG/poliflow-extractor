@@ -3,7 +3,7 @@ name: subloop
 version: '0.1.0'
 specVersion: '0.8'
 description: Loop subflow part of the parallel loop workflow
-start: first
+start: loop
 
 # https://sonataflow.org/serverlessworkflow/latest/core/custom-functions-support.html#con-func-knative
 functions:
@@ -24,11 +24,11 @@ functions:
     operation: knative:services.v1.serving.knative.dev/function-f?method=GET&returnHeaders=true
 
 states:
-  - name: first
-    type: operation
-    actions:
-      - functionRef: function-a
-    transition: loop
+  # - name: first
+  #   type: operation
+  #   actions:
+  #     - functionRef: function-a
+  #   transition: loop
   # - name: d
   #   type: operation
   #   actions:
@@ -47,8 +47,8 @@ states:
   - name: loop
     type: foreach
     actions:
-      - functionRef: function-d
       - functionRef: function-b
+      - functionRef: function-d
     mode: sequential
     inputCollection: "${ .iteration }"
     iterationParam: "."

@@ -1,1 +1,1 @@
-[{"type": "sequence", "value": [{"type": "event", "value": {"name": "triggerEvent", "source": "http-event-sources", "type": "http.request.received", "kind": "consumed"}}, {"type": "function:knative", "value": {"operation": "function-a"}}, {"type": "function:knative", "value": {"operation": "function-b"}}]}]
+[{"type": "sequence", "value": [{"type": "event", "value": {"name": "triggerEvent", "source": "http-event-sources", "type": "http.request.received", "kind": "consumed"}}, {"type": "function:knative", "value": {"operation": "function-b"}}]}]

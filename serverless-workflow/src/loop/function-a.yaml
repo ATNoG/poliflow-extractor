@@ -1,8 +1,0 @@
-- type: sequence
-  value:
-  - type: event
-    value:
-      kind: consumed
-      name: triggerEvent
-      source: http-event-sources
-      type: http.request.received

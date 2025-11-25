@@ -92,6 +92,9 @@ functions:
   - name: f11
     type: custom
     operation: knative:services.v1.serving.knative.dev/f11?method=POST
+  - name: result
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/result?method=POST
   - name: merge-results
     type: expression
     operation: |
@@ -305,10 +308,18 @@ states:
       - functionRef: merge-results
     stateDataFilter:
       output: "${ ._result }"
-    end:
-      produceEvents:
-        - eventRef: valveWorkflowFinish
-      terminate: true
+    # end:
+    #   produceEvents:
+    #     - eventRef: valveWorkflowFinish
+    #   terminate: true
+    transition: result
+  
+  - name: result
+    type: operation
+    actions:
+      - functionRef:
+          refName: result
+    end: true
 
   - name: f2-upload-verification
     type: operation
