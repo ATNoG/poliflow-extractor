@@ -1,1 +1,1 @@
-[{"type": "sequence", "value": [{"type": "event", "value": {"name": "triggerEvent", "source": "http-event-sources", "type": "http.request.received", "kind": "consumed"}}]}]
+[{"type": "sequence", "value": [{"type": "event", "value": {"name": "triggerEvent", "source": "entry-point", "type": "http.request.received", "kind": "consumed"}}, {"type": "function:expression", "value": null}, {"type": "function:knative", "value": {"operation": "function-a"}}]}]

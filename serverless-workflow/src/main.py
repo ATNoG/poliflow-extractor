@@ -97,6 +97,8 @@ def get_nested_transition_path(
         path = get_nested_path(
             machine, src_state, path=f"{machine_path}.{src_state.name}", loop_dep_iterations=loop_dep_iterations, loop_min=loop_min
         )
+        # if not path:
+        #     path = {"type": }
         for t in nested_transitions:
             # Avoid infinite recursion in foreach states, where one of the transitions is from it to itself
             if "foreach_state" in src_state.tags and t.source == t.dest:
@@ -113,7 +115,7 @@ def get_nested_transition_path(
             transition_path = []
 
             # TODO -> THIS PIECE OF CODE CAN BE IMPROVED, IT REPEATS TWO TIMES
-            if path["type"] == "sequence":
+            if path and path["type"] == "sequence":
                 for p in path["value"]:
                     transition_path.append(p.copy())
                     if next_state_path["type"] == "sequence":
@@ -122,7 +124,8 @@ def get_nested_transition_path(
                     else:
                         transition_path.append(next_state_path)
             else:
-                transition_path.append(path.copy())
+                if path:
+                    transition_path.append(path.copy())
                 if next_state_path["type"] == "sequence":
                     for nsp in next_state_path["value"]:
                         transition_path.append(nsp)

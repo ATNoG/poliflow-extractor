@@ -4,5 +4,13 @@
     value:
       kind: consumed
       name: triggerEvent
-      source: http-event-sources
+      source: entry-point
       type: http.request.received
+  - type: function:expression
+    value: null
+  - type: function:knative
+    value:
+      operation: function-a
+  - type: function:knative
+    value:
+      operation: function-b
