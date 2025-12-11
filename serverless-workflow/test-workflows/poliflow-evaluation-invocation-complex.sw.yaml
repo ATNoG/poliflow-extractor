@@ -1,0 +1,383 @@
+id: complex
+name: Complex workflow
+version: '0.1.0'
+specVersion: '0.8'
+start: entry-event
+
+events:
+  - name: triggerEvent
+    type: http.request.received
+    source: entry-point
+    kind: consumed
+  - name: uploadPhoto
+    type: photo.database.upload
+    kind: produced
+  - name: newPhoto
+    type: photo.database.new
+    source: database-dummy
+    kind: consumed
+  - name: uploadInfo
+    type: info.database.upload
+    kind: produced
+  - name: newInfo
+    type: info.database.new
+    source: database-dummy
+    kind: consumed
+  - name: verification
+    type: info.database.verification
+    kind: produced
+  - name: resultVerification
+    type: info.database.result
+    source: database-dummy
+    kind: consumed
+  - name: client
+    type: info.database.client
+    kind: produced
+  - name: resultClient
+    type: info.database.resultClient
+    source: database-dummy
+    kind: consumed
+  - name: valveWorkflowFinish
+    type: valve.workflow.finish
+    kind: produced
+
+functions:
+  - name: process-event
+    type: expression
+    operation: |
+      {
+        transformed: (
+          (
+            .headers
+            | to_entries
+            | map(select(.key | ascii_downcase != "host"))
+            | map({("HEADER_" + .key): .value})
+            | add
+          ) + .data
+        )
+      }
+  - name: f1
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/f1?method=POST
+  - name: f4
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/f4?method=POST
+  - name: f5
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/f5?method=POST
+  - name: f6
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/f6?method=POST
+  - name: f7
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/f7?method=POST
+  - name: f8
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/f8?method=POST
+  - name: f9
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/f9?method=POST
+  - name: f10
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/f10?method=POST
+  - name: f11
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/f11?method=POST
+  - name: function-b
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/function-b?method=POST
+  - name: function-c
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/function-c?method=POST
+  - name: result
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/result?method=POST
+  - name: merge-results
+    type: expression
+    operation: |
+      def deepmerge($a; $b):
+        if $a == null then $b
+        elif $b == null then $a
+        elif $b | type == "object" then
+          reduce ($b | to_entries[]) as $kv ($a;
+            .[$kv.key] = deepmerge(.[$kv.key]; $kv.value)
+          )
+        elif $b | type == "array" then
+          if $a | type == "array" then
+            ($a | length) as $la |
+            ($b | length) as $lb |
+            # length of the shorter array
+            (if $la < $lb then $la else $lb end) as $minlen |
+
+            # accumulate contiguous common prefix
+            reduce range(0; $minlen) as $i (
+              { ok: true, prefix: [] };
+              if .ok and ($a[$i] == $b[$i]) then
+                { ok: true, prefix: (.prefix + [$a[$i]]) }
+              else
+                { ok: false, prefix: .prefix }
+              end
+            ) as $res |
+
+            ($res.prefix) as $prefix |
+            ($prefix | length) as $pLen |
+
+            # tails after the prefix
+            ([ range($pLen; $la) | $a[.] ]) as $tailA |
+            ([ range($pLen; $lb) | $b[.] ]) as $tailB |
+
+            # final: prefix + tailA + tailB
+            ($prefix + $tailA + $tailB)
+          else
+            $b
+          end
+        else
+          $b
+        end;
+
+      { _result: reduce (to_entries[] | select(.key | startswith("branch-"))) as $item ({};
+          deepmerge(.; $item.value)
+        )
+      }
+  - name: merge-results-loop
+    type: expression
+    operation: |
+      def deepmerge($a; $b):
+        if $a == null then $b
+        elif $b == null then $a
+        elif $b | type == "object" then
+          reduce ($b | to_entries[]) as $kv ($a;
+            .[$kv.key] = deepmerge(.[$kv.key]; $kv.value)
+          )
+        elif $b | type == "array" then
+          if $a | type == "array" then
+            ($a | length) as $la |
+            ($b | length) as $lb |
+            # length of the shorter array
+            (if $la < $lb then $la else $lb end) as $minlen |
+
+            # accumulate contiguous common prefix
+            reduce range(0; $minlen) as $i (
+              { ok: true, prefix: [] };
+              if .ok and ($a[$i] == $b[$i]) then
+                { ok: true, prefix: (.prefix + [$a[$i]]) }
+              else
+                { ok: false, prefix: .prefix }
+              end
+            ) as $res |
+
+            ($res.prefix) as $prefix |
+            ($prefix | length) as $pLen |
+
+            # tails after the prefix
+            ([ range($pLen; $la) | $a[.] ]) as $tailA |
+            ([ range($pLen; $lb) | $b[.] ]) as $tailB |
+
+            # final: prefix + tailA + tailB
+            ($prefix + $tailA + $tailB)
+          else
+            $b
+          end
+        else
+          $b
+        end;
+
+      {
+        _result:
+          if (._outputs // []) | length > 0 then
+            reduce (._outputs[]) as $item ({}; deepmerge(.; $item))
+          else
+            (. | del(._result))
+          end
+      }
+
+states:
+  - name: entry-event
+    type: event
+    onEvents:
+      - eventRefs:
+          - triggerEvent
+        actions:
+        - functionRef: process-event
+    stateDataFilter:
+      output: "${ .transformed }"
+    transition: f1-upload-listing
+  
+  - name: f1-upload-listing
+    type: operation
+    actions: 
+      - functionRef: f1
+        actionDataFilter:
+          toStateData: ._result
+    stateDataFilter:
+      output: ._result
+    transition: d1
+
+  # - name: d1
+  #   type: operation
+  #   actions:
+  #     - eventRef:
+  #         triggerEventRef: uploadPhoto
+  #         resultEventRef: newPhoto
+  #   transition: f4-photo-verification
+
+  - name: d1
+    type: callback
+    action:
+      eventRef:
+        triggerEventRef: uploadPhoto
+        resultEventRef: newPhoto         # this is ignored in Sonataflow
+    eventRef: newPhoto
+    eventDataFilter:
+      data: "${ .data }"
+      toStateData: ._result
+    stateDataFilter:
+      output: ._result
+    transition: f4-photo-verification
+
+  - name: f4-photo-verification
+    type: operation
+    actions: 
+      - functionRef: f4
+        actionDataFilter:
+          toStateData: ._result
+    stateDataFilter:
+      output: ._result
+    transition: f5-image-correction
+
+  - name: f5-image-correction
+    type: operation
+    actions: 
+      - functionRef: f5
+        actionDataFilter:
+          toStateData: ._result
+    stateDataFilter:
+      output: ._result
+    transition: d2-verify
+
+  - name: d2-verify
+    type: callback
+    action:
+      eventRef:
+        triggerEventRef: verification
+        resultEventRef: resultVerification         # this is ignored in Sonataflow
+    eventRef: resultVerification
+    eventDataFilter:
+      data: "${ .data }"
+      toStateData: ._result
+    stateDataFilter:
+      output: ._result
+    transition: f7-add-verified-label
+
+  - name: f7-add-verified-label
+    type: operation
+    actions:
+      - functionRef: f7
+        actionDataFilter:
+          toStateData: ._result
+    stateDataFilter:
+      output: ._result
+    transition: f6-post-website
+
+  - name: f6-post-website
+    type: operation
+    actions: 
+      - functionRef: f6
+        actionDataFilter:
+          toStateData: ._result
+    stateDataFilter:
+      output: ._result
+    transition: f8-advertise-listing
+  
+  - name: f8-advertise-listing
+    type: operation
+    actions:
+      - functionRef: f8
+        actionDataFilter:
+          toStateData: ._result
+    stateDataFilter:
+      output: ._result
+    transition: d2-client
+  
+  - name: d2-client
+    type: callback
+    action:
+      eventRef:
+        triggerEventRef: client
+        resultEventRef: resultClient         # this is ignored in Sonataflow
+    eventRef: resultClient
+    eventDataFilter:
+      data: "${ .data }"
+      toStateData: ._result
+    stateDataFilter:
+      output: ._result
+    transition: advertise-parallel
+  
+  - name: advertise-parallel
+    type: parallel
+    branches:
+      - name: send-sms
+        actions:
+          - functionRef: f9
+            actionDataFilter:
+              fromStateData: "${ ._original }"
+              results: "${ {\"branch-f9\": .} }"
+      - name: tweet
+        actions:
+          - functionRef: f10
+            actionDataFilter:
+              fromStateData: "${ ._original }"
+              results: "${ {\"branch-f10\": .} }"
+      - name: messenger-chatbot
+        actions:
+          - functionRef: f11
+            actionDataFilter:
+              fromStateData: "${ ._original }"
+              results: "${ {\"branch-f11\": .} }"
+    stateDataFilter:
+      input: "${ { _original: . } }"
+    transition: merge-results
+
+  - name: merge-results
+    type: operation
+    actions:
+      - functionRef: merge-results
+    stateDataFilter:
+      output: "${ ._result }"
+    # end:
+    #   produceEvents:
+    #     - eventRef: valveWorkflowFinish
+    #   terminate: true
+    transition: loop
+  
+  - name: loop
+    type: foreach
+    actions:
+      # https://sonataflow.org/serverlessworkflow/latest/core/understanding-jq-expressions.html#_foreach_state
+      - functionRef: function-b
+        actionDataFilter:
+          toStateData: ${ . }
+          results: "${ [{_result: .}] }"
+      - functionRef: function-c
+        actionDataFilter:
+          fromStateData: ".response[0]._result"
+    mode: sequential
+    inputCollection: "${ .iteration }"
+    iterationParam: "param"
+    outputCollection: "${._outputs}"
+    transition: merge-results-loop
+  
+  - name: merge-results-loop
+    type: operation
+    actions:
+      - functionRef: merge-results-loop
+    stateDataFilter:
+      output: "${ ._result }"
+    transition: result
+  
+  - name: result
+    type: operation
+    actions:
+      - functionRef:
+          refName: result
+    end: true

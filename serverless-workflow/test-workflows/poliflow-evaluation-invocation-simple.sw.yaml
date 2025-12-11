@@ -1,0 +1,62 @@
+id: simple
+name: Simple workflow
+version: '0.1.0'
+specVersion: '0.8'
+start: entry-event
+
+events:
+  - name: triggerEvent
+    type: http.request.received
+    source: entry-point
+    kind: consumed
+
+functions:
+  - name: process-event
+    type: expression
+    operation: |
+      {
+        transformed: (
+          (
+            .headers
+            | to_entries
+            | map(select(.key | ascii_downcase != "host"))
+            | map({("HEADER_" + .key): .value})
+            | add
+          ) + .data
+        )
+      }
+  - name: f1
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/f1?method=POST
+  - name: result
+    type: custom
+    operation: knative:services.v1.serving.knative.dev/result?method=POST
+
+states:
+  - name: entry-event
+    type: event
+    onEvents:
+      - eventRefs:
+          - triggerEvent
+        actions:
+        - functionRef: process-event
+    stateDataFilter:
+      output: "${ .transformed }"
+    transition: f1
+  
+  - name: f1
+    type: operation
+    actions: 
+      - functionRef: f1
+        actionDataFilter:
+          toStateData: ._result
+    stateDataFilter:
+      output: ._result
+    transition: result
+
+  - name: result
+    type: operation
+    actions:
+      - functionRef:
+          refName: result
+    end: true

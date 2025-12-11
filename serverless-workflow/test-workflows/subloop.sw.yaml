@@ -3,32 +3,88 @@ name: subloop
 version: '0.1.0'
 specVersion: '0.8'
 description: Loop subflow part of the parallel loop workflow
-start: loop
+start: first
 
 # https://sonataflow.org/serverlessworkflow/latest/core/custom-functions-support.html#con-func-knative
 functions:
   - name: function-a
     type: custom
-    operation: knative:services.v1.serving.knative.dev/function-a?method=GET&returnHeaders=true
+    operation: knative:services.v1.serving.knative.dev/function-a?method=POST
   - name: function-b
     type: custom
-    operation: knative:services.v1.serving.knative.dev/function-b?method=GET&returnHeaders=true
-  - name: function-d
+    operation: knative:services.v1.serving.knative.dev/function-b?method=POST
+  - name: function-c
     type: custom
-    operation: knative:services.v1.serving.knative.dev/function-d?method=GET&returnHeaders=true
+    operation: knative:services.v1.serving.knative.dev/function-c?method=POST
   - name: function-e
     type: custom
-    operation: knative:services.v1.serving.knative.dev/function-e?method=GET&returnHeaders=true
+    operation: knative:services.v1.serving.knative.dev/function-e?method=POST
   - name: function-f
     type: custom
-    operation: knative:services.v1.serving.knative.dev/function-f?method=GET&returnHeaders=true
+    operation: knative:services.v1.serving.knative.dev/function-f?method=POST
+  - name: merge-results
+    type: expression
+    operation: |
+      def deepmerge($a; $b):
+        if $a == null then $b
+        elif $b == null then $a
+        elif $b | type == "object" then
+          reduce ($b | to_entries[]) as $kv ($a;
+            .[$kv.key] = deepmerge(.[$kv.key]; $kv.value)
+          )
+        elif $b | type == "array" then
+          if $a | type == "array" then
+            ($a | length) as $la |
+            ($b | length) as $lb |
+            # length of the shorter array
+            (if $la < $lb then $la else $lb end) as $minlen |
+
+            # accumulate contiguous common prefix
+            reduce range(0; $minlen) as $i (
+              { ok: true, prefix: [] };
+              if .ok and ($a[$i] == $b[$i]) then
+                { ok: true, prefix: (.prefix + [$a[$i]]) }
+              else
+                { ok: false, prefix: .prefix }
+              end
+            ) as $res |
+
+            ($res.prefix) as $prefix |
+            ($prefix | length) as $pLen |
+
+            # tails after the prefix
+            ([ range($pLen; $la) | $a[.] ]) as $tailA |
+            ([ range($pLen; $lb) | $b[.] ]) as $tailB |
+
+            # final: prefix + tailA + tailB
+            ($prefix + $tailA + $tailB)
+          else
+            $b
+          end
+        else
+          $b
+        end;
+
+      {
+        _result:
+          if (._outputs // []) | length > 0 then
+            reduce (._outputs[]) as $item ({}; deepmerge(.; $item))
+          else
+            (. | del(._result))
+          end
+      }
+
 
 states:
   # - name: first
   #   type: operation
   #   actions:
   #     - functionRef: function-a
-  #   transition: loop
+  #       actionDataFilter:
+  #         toStateData: ._result
+  #   stateDataFilter:
+  #     output: ._result
+  #   transition: inject
   # - name: d
   #   type: operation
   #   actions:
@@ -44,12 +100,35 @@ states:
   #   actions:
   #     - functionRef: function-f
   #   end: true
+  - name: first
+    type: inject
+    data:
+      iteration: #[]
+        - first
+        - second
+        - third
+    transition: loop
   - name: loop
     type: foreach
     actions:
+      # https://sonataflow.org/serverlessworkflow/latest/core/understanding-jq-expressions.html#_foreach_state
       - functionRef: function-b
-      - functionRef: function-d
+        actionDataFilter:
+          toStateData: ${ . }
+          results: "${ [{_result: .}] }"
+      - functionRef: function-c
+        actionDataFilter:
+          fromStateData: ".response[0]._result"
     mode: sequential
     inputCollection: "${ .iteration }"
-    iterationParam: "."
-    end: True
+    iterationParam: "param"
+    outputCollection: "${._outputs}"
+    transition: merge-results
+
+  - name: merge-results
+    type: operation
+    actions:
+      - functionRef: merge-results
+    stateDataFilter:
+      output: "${ ._result }"
+    end: true

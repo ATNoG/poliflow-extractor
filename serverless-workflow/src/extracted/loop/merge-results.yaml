@@ -1,0 +1,47 @@
+- type: sequence
+  value:
+  - type: event
+    value:
+      kind: consumed
+      name: triggerEvent
+      source: entry-point
+      type: http.request.received
+  - type: function:expression
+    value: null
+  - type: parallel
+    value:
+    - loop: true
+      type: sequence
+      value:
+      - type: function:knative
+        value:
+          operation: function-b
+      - type: function:knative
+        value:
+          operation: function-c
+- type: sequence
+  value:
+  - type: event
+    value:
+      kind: consumed
+      name: triggerEvent
+      source: entry-point
+      type: http.request.received
+  - type: function:expression
+    value: null
+  - type: parallel
+    value:
+    - loop: true
+      type: sequence
+      value:
+      - type: function:knative
+        value:
+          operation: function-b
+      - type: function:knative
+        value:
+          operation: function-c
+    - type: sequence
+      value:
+      - type: function:knative
+        value:
+          operation: function-d

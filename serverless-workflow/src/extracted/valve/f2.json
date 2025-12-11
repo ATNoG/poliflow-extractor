@@ -1,0 +1,1 @@
+[{"type": "sequence", "value": [{"type": "event", "value": {"name": "triggerEvent", "source": "entry-point", "type": "http.request.received", "kind": "consumed"}}, {"type": "function:expression", "value": null}]}]

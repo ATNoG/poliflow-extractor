@@ -5,7 +5,9 @@ from serverlessworkflow.sdk.state_machine_extensions import CustomHierarchicalMa
 from transitions.extensions.nesting import HierarchicalMachine, NestedState
 
 NestedState.separator = "."
+SAVE_PATH = "extracted/"
 
+os.makedirs(SAVE_PATH, exist_ok=True)
 
 def get_most_inner_states(
     machine: HierarchicalMachine, state: NestedState
@@ -355,7 +357,7 @@ def main(
                     final_paths[name] = []
                 final_paths[name].extend(paths_to_substate)
 
-    if os.path.exists(path := workflow_path.split("/")[-1].split(".")[0]):
+    if os.path.exists(path := SAVE_PATH + workflow_path.split("/")[-1].split(".")[0]):
         shutil.rmtree(path)
     os.mkdir(path)
     for substate in final_paths:
@@ -367,7 +369,7 @@ def main(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("simple_example")
+    parser = argparse.ArgumentParser("extractor")
     parser.add_argument(
         "-w",
         "--workflow",

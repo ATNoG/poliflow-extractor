@@ -1,0 +1,13 @@
+- type: sequence
+  value:
+  - type: event
+    value:
+      kind: consumed
+      name: triggerEvent
+      source: entry-point
+      type: http.request.received
+  - type: function:expression
+    value: null
+  - type: function:knative
+    value:
+      operation: f1

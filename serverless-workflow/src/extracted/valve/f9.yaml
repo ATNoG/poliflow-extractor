@@ -1,0 +1,61 @@
+- type: sequence
+  value:
+  - type: event
+    value:
+      kind: consumed
+      name: triggerEvent
+      source: entry-point
+      type: http.request.received
+  - type: function:expression
+    value: null
+  - type: function:knative
+    value:
+      operation: f1
+  - type: event
+    value:
+      result:
+        kind: consumed
+        name: newPhoto
+        source: database-dummy
+        type: photo.database.new
+      trigger:
+        kind: produced
+        name: uploadPhoto
+        type: photo.database.upload
+  - type: function:knative
+    value:
+      operation: f4
+  - type: function:knative
+    value:
+      operation: f5
+  - type: event
+    value:
+      result:
+        kind: consumed
+        name: resultVerification
+        source: database-dummy
+        type: info.database.result
+      trigger:
+        kind: produced
+        name: verification
+        type: info.database.verification
+  - type: function:knative
+    value:
+      operation: f7
+  - type: function:knative
+    value:
+      operation: f6
+  - type: function:knative
+    value:
+      operation: f8
+  - type: event
+    value:
+      result:
+        kind: consumed
+        name: resultClient
+        source: database-dummy
+        type: info.database.resultClient
+      trigger:
+        kind: produced
+        name: client
+        type: info.database.client
