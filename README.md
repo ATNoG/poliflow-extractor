@@ -1,6 +1,10 @@
+> **ℹ️ Note**  
+> This repository is part of the **PoliFlow framework**.  
+> For more details, please refer to: [https://github.com/ATNoG/poliflow](https://github.com/ATNoG/poliflow)
+
 # PoliFlow Extractor
 
-This repository contains two implementations of the PolifFlow Extractor: one for the CNCF Serverless Workflow v0.8 and another for the PoliFlow Language.
+The PoliFlow Extractor contains two implementations of the PolifFlow Extractor: one for the CNCF Serverless Workflow v0.8 and another for the PoliFlow Language.
 
 ## Extractor for the CNCF Serverless Workflow
 
